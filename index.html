@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Profile Debugger</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            background: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        input[type="text"]:focus, input[type="url"]:focus {
+            outline: none;
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #6d28d9;
+        }
+
+        .btn-secondary {
+            background: #f97316;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #ea580c;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .profile-section {
+            margin-bottom: 2rem;
+        }
+
+        .profile-item {
+            display: flex;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .profile-label {
+            min-width: 150px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .profile-value {
+            flex: 1;
+            color: #6c757d;
+            word-break: break-all;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .storage-highlight {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .storage-url {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: #28a745;
+            font-weight: 600;
+            font-size: 1.1rem;
+            word-break: break-all;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            text-decoration: none;
+        }
+
+        .storage-url:hover {
+            text-decoration: underline;
+            color: #1e7e34;
+        }
+
+        .clickable-link {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .clickable-link:hover {
+            text-decoration: underline;
+            color: #0056b3;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
+            margin: 1rem 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .bitcoin-addresses {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .bitcoin-address {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: #856404;
+            margin: 0.25rem 0;
+            word-break: break-all;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { html, render, Component } from 'https://unpkg.com/htm/preact/standalone.module.js';
+        import { Navbar } from './navbar.js';
+        import { SolidParser } from './webidParser.js';
+        import { NostrParser } from './nostrParser.js';
+
+        class ProfileViewer extends Component {
+            constructor(props) {
+                super(props);
+                this.state = {
+                    profile: null,
+                    loading: false,
+                    error: null,
+                    profileType: null,
+                    isAuthenticated: false
+                };
+                this.solidParser = new SolidParser();
+                this.nostrParser = new NostrParser();
+            }
+
+            getDidDocumentUrl = (didId) => {
+                if (didId.startsWith('did:nostr:')) {
+                    const pubkey = didId.replace('did:nostr:', '');
+                    return `https://nostr.social/.well-known/did/nostr/${pubkey}.json`;
+                }
+                return didId;
+            };
+
+            getBitcoinExplorerUrl = (address, network) => {
+                if (network === 'tbtc4') {
+                    return `https://mempool.space/testnet4/address/${address}`;
+                } else if (network === 'btc') {
+                    return `https://mempool.space/address/${address}`;
+                }
+                return null;
+            };
+
+            parseWebId = async (webId) => {
+                this.setState({ loading: true, error: null, profile: null });
+
+                try {
+                    const result = await this.solidParser.getStorageFromWebId(webId);
+                    
+                    if (result.error) {
+                        this.setState({ error: result.error });
+                    } else {
+                        this.setState({ 
+                            profile: result, 
+                            profileType: 'webid' 
+                        });
+                    }
+                } catch (error) {
+                    this.setState({ error: error.message });
+                } finally {
+                    this.setState({ loading: false });
+                }
+            };
+
+            parseNostr = async (didId) => {
+                this.setState({ loading: true, error: null, profile: null });
+
+                try {
+                    const result = await this.nostrParser.getStorageFromDid(didId);
+                    
+                    if (result.error) {
+                        this.setState({ error: result.error });
+                    } else {
+                        this.setState({ 
+                            profile: result, 
+                            profileType: 'nostr' 
+                        });
+                    }
+                } catch (error) {
+                    this.setState({ error: error.message });
+                } finally {
+                    this.setState({ loading: false });
+                }
+            };
+
+            onAuthChange = (isLoggedIn, identity, metadata) => {
+                this.setState({ isAuthenticated: isLoggedIn });
+                
+                if (isLoggedIn) {
+                    if (metadata?.isNostrAuth) {
+                        this.parseNostr(identity);
+                    } else {
+                        this.parseWebId(identity);
+                    }
+                } else {
+                    this.setState({ profile: null, error: null, profileType: null });
+                }
+            };
+
+            renderProfile = () => {
+                const { profile, profileType } = this.state;
+                if (!profile) return null;
+
+                if (profileType === 'webid') {
+                    return this.renderWebIdProfile(profile);
+                } else if (profileType === 'nostr') {
+                    return this.renderNostrProfile(profile);
+                }
+            };
+
+            renderWebIdProfile = (profile) => {
+                return html`
+                    <div class="profile-section">
+                        <h3 style=${{ marginBottom: '1rem', color: '#7c3aed' }}>WebID Profile</h3>
+                        
+                        ${profile.storage && html`
+                            <div class="storage-highlight">
+                                <strong>🗄️ Storage Endpoint:</strong>
+                                <a href="${profile.storage}" target="_blank" class="storage-url">${profile.storage}</a>
+                            </div>
+                        `}
+
+                        <div class="profile-item">
+                            <div class="profile-label">WebID:</div>
+                            <div class="profile-value">
+                                <a href="${profile.webId}" target="_blank" class="clickable-link">${profile.webId}</a>
+                            </div>
+                        </div>
+
+                        ${profile.profile?.name && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Name:</div>
+                                <div class="profile-value">${profile.profile.name}</div>
+                            </div>
+                        `}
+
+                        ${profile.profile?.email && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Email:</div>
+                                <div class="profile-value">${profile.profile.email}</div>
+                            </div>
+                        `}
+
+                        ${profile.profile?.organization && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Organization:</div>
+                                <div class="profile-value">${profile.profile.organization}</div>
+                            </div>
+                        `}
+
+                        ${profile.profile?.inbox && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Inbox:</div>
+                                <div class="profile-value">
+                                    <a href="${profile.profile.inbox}" target="_blank" class="clickable-link">${profile.profile.inbox}</a>
+                                </div>
+                            </div>
+                        `}
+
+                        ${profile.profile?.oidcIssuer && html`
+                            <div class="profile-item">
+                                <div class="profile-label">OIDC Issuer:</div>
+                                <div class="profile-value">
+                                    <a href="${profile.profile.oidcIssuer}" target="_blank" class="clickable-link">${profile.profile.oidcIssuer}</a>
+                                </div>
+                            </div>
+                        `}
+
+                        ${profile.profile?.publicTypeIndex && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Public Type Index:</div>
+                                <div class="profile-value">
+                                    <a href="${profile.profile.publicTypeIndex}" target="_blank" class="clickable-link">${profile.profile.publicTypeIndex}</a>
+                                </div>
+                            </div>
+                        `}
+
+                        ${profile.profile?.privateTypeIndex && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Private Type Index:</div>
+                                <div class="profile-value">
+                                    <a href="${profile.profile.privateTypeIndex}" target="_blank" class="clickable-link">${profile.profile.privateTypeIndex}</a>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+                `;
+            };
+
+            renderNostrProfile = (profile) => {
+                const bitcoinServices = profile.services?.bitcoin || {};
+                
+                return html`
+                    <div class="profile-section">
+                        <h3 style=${{ marginBottom: '1rem', color: '#f97316' }}>Nostr DID Profile</h3>
+                        
+                        ${profile.storage && html`
+                            <div class="storage-highlight">
+                                <strong>🗄️ Storage Endpoint:</strong>
+                                <a href="${profile.storage}" target="_blank" class="storage-url">${profile.storage}</a>
+                            </div>
+                        `}
+
+                        <div class="profile-item">
+                            <div class="profile-label">DID:</div>
+                            <div class="profile-value">
+                                <a href="${this.getDidDocumentUrl(profile.didId)}" target="_blank" class="clickable-link">${profile.didId}</a>
+                            </div>
+                        </div>
+
+                        ${profile.services?.website && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Website:</div>
+                                <div class="profile-value">
+                                    <a href="${profile.services.website.serviceEndpoint}" target="_blank" class="clickable-link">${profile.services.website.serviceEndpoint}</a>
+                                </div>
+                            </div>
+                        `}
+
+                        ${Object.keys(bitcoinServices).length > 0 && html`
+                            <div class="bitcoin-addresses">
+                                <strong>₿ Bitcoin Addresses:</strong>
+                                ${bitcoinServices.btc && html`
+                                    <div class="bitcoin-address">
+                                        <strong>Mainnet:</strong> 
+                                        <a href="${this.getBitcoinExplorerUrl(bitcoinServices.btc.serviceEndpoint, 'btc')}" target="_blank" class="clickable-link">${bitcoinServices.btc.serviceEndpoint}</a>
+                                    </div>
+                                `}
+                                ${bitcoinServices.tbtc4 && html`
+                                    <div class="bitcoin-address">
+                                        <strong>Testnet:</strong> 
+                                        <a href="${this.getBitcoinExplorerUrl(bitcoinServices.tbtc4.serviceEndpoint, 'tbtc4')}" target="_blank" class="clickable-link">${bitcoinServices.tbtc4.serviceEndpoint}</a>
+                                    </div>
+                                `}
+                            </div>
+                        `}
+
+                        ${profile.verificationMethods && Object.keys(profile.verificationMethods).length > 0 && html`
+                            <div class="profile-item">
+                                <div class="profile-label">Verification Methods:</div>
+                                <div class="profile-value">${Object.keys(profile.verificationMethods).length} methods</div>
+                            </div>
+                        `}
+                    </div>
+                `;
+            };
+
+            render() {
+                const { loading, error, isAuthenticated } = this.state;
+
+                return html`
+                    <div>
+                        <${Navbar} onAuthChange=${this.onAuthChange} />
+                        
+                        <div class="container">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h2>Identity Profile Debug</h2>
+                                    <p>Debug your identity profile and inspect storage endpoints</p>
+                                </div>
+                                <div class="card-body">
+                                    ${!isAuthenticated ? html`
+                                        <div style=${{
+                                            textAlign: 'center',
+                                            padding: '3rem 1rem',
+                                            color: '#6c757d'
+                                        }}>
+                                            <div style=${{
+                                                fontSize: '3rem',
+                                                marginBottom: '1rem'
+                                            }}>🔐</div>
+                                            <h3 style=${{ marginBottom: '1rem', color: '#495057' }}>Please Log In</h3>
+                                            <p>Use the login buttons in the navbar above to authenticate with either Solid or Nostr, then your profile details will appear here.</p>
+                                        </div>
+                                    ` : html`
+                                        ${loading && html`
+                                            <div class="loading">
+                                                <span class="spinner"></span>Loading profile...
+                                            </div>
+                                        `}
+
+                                        ${error && html`
+                                            <div class="error">
+                                                <strong>Error:</strong> ${error}
+                                            </div>
+                                        `}
+
+                                        ${this.renderProfile()}
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        render(html`<${ProfileViewer} />`, document.getElementById('root'));
+    </script>
+</body>
+</html>

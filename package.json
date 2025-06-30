@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "name": "solid-parser",
+  "version": "1.0.0",
+  "description": "Solid Protocol parser for WebID and type indexes"
+}
