@@ -44,12 +44,13 @@ export class Navbar extends Component {
     this.state = {
       isLoggedIn: false,
       webId: null,
-      selectedPod: 'https://solidweb.me/',
+      selectedPod: localStorage.getItem('selectedPod') || 'https://solidweb.me/',
       isLoading: false,
       isNostrAuth: false,
       didDocument: null,
       nostrPubkey: null,
-      nostrPrivkey: null
+      nostrPrivkey: null,
+      showProviders: false
     };
   }
 
@@ -187,7 +188,7 @@ export class Navbar extends Component {
         title: 'Login with Nostr',
         html: `
           <button id="extensionLogin" class="swal2-confirm swal2-styled" style="display:block; width:100%; margin:10px auto; background-color: #7c3aed;">Sign in with Nostr extension</button>
-          <input id="privkeyInput" type="password" placeholder="Or enter your 64-character hex private key" class="swal2-input" style="display:block; width:100%; margin:10px auto;">
+          <input id="privkeyInput" type="password" placeholder="Or enter your 64-character hex private key" class="swal2-input" style="display:block; width:100%; margin:10px auto;" autocomplete="off" data-lpignore="true">
           <p style="margin-top: 10px; font-size: 0.9em;"><a href="https://nostrapps.github.io/extensions/" target="_blank">What is a Nostr extension?</a></p>
         `,
         showConfirmButton: false,
@@ -422,11 +423,40 @@ export class Navbar extends Component {
   };
 
   handlePodChange = (e) => {
-    this.setState({ selectedPod: e.target.value });
+    const newPod = e.target.value;
+    this.setState({ selectedPod: newPod });
+    localStorage.setItem('selectedPod', newPod);
+  };
+
+  handlePodSelect = (podUrl) => {
+    this.setState({ selectedPod: podUrl, showProviders: false });
+    localStorage.setItem('selectedPod', podUrl);
+  };
+
+  toggleProviders = () => {
+    this.setState({ showProviders: !this.state.showProviders });
+  };
+
+  validatePodUrl = (url) => {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'https:' && url.endsWith('/');
+    } catch {
+      return false;
+    }
   };
 
   render() {
-    const { isLoggedIn, webId, selectedPod, isLoading, isNostrAuth, didDocument, nostrPubkey } = this.state;
+    const { isLoggedIn, webId, selectedPod, isLoading, isNostrAuth, didDocument, nostrPubkey, showProviders } = this.state;
+
+    const commonProviders = [
+      'https://solidweb.me/',
+      'https://teamid.live/',
+      'https://trinpod.eu/',
+      'https://trinpod.us/',
+      'https://solidcommunity.net/',
+      'https://angelo.veltens.org/'
+    ];
 
     // Generate display text and color for Nostr auth
     const displayText = isNostrAuth && nostrPubkey ? nostrPubkey.substring(0, 8) : null;
@@ -533,59 +563,110 @@ export class Navbar extends Component {
               ${isLoading ? 'Loading...' : `Logout${isNostrAuth && displayText ? ` (${displayText})` : ''}`}
             </button>
           ` : html`
-            <select
-              value=${selectedPod}
-              onChange=${this.handlePodChange}
-              disabled=${isLoading}
-              style=${{
-                padding: '0.5rem',
-                border: '1px solid #ccc',
-                fontSize: '0.9rem',
-                background: 'white',
-                color: '#333',
-                cursor: isLoading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              <option value="https://solidweb.me/">solidweb.me</option>
-              <option value="https://teamid.live/">teamid.live</option>
-              <option value="https://trinpod.eu/">trinpod.eu</option>
-              <option value="https://trinpod.us/">trinpod.us</option>
-              <option value="https://solidcommunity.net/">solidcommunity.net</option>
-              <option value="https://angelo.veltens.org/">angelo.veltens.org</option>
-            </select>
-            <button
-              onClick=${this.handleLogin}
-              disabled=${isLoading}
-              style=${{
-                background: '#7c3aed',
-                color: 'white',
-                border: '1px solid #5b21b6',
-                padding: '0.5rem 1rem',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.7 : 1,
-                marginRight: '0.5rem'
-              }}
-            >
-              ${isLoading ? 'Loading...' : 'Login with Solid'}
-            </button>
-            <button
-              onClick=${this.handleNostrLogin}
-              disabled=${isLoading}
-              style=${{
-                background: '#f97316',
-                color: 'white',
-                border: '1px solid #ea580c',
-                padding: '0.5rem 1rem',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.7 : 1
-              }}
-            >
-              ${isLoading ? 'Loading...' : 'Login with Nostr'}
-            </button>
+            <div style=${{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style=${{ position: 'relative' }}>
+                <input
+                  type="url"
+                  value=${selectedPod}
+                  onChange=${this.handlePodChange}
+                  disabled=${isLoading}
+                  placeholder="Enter Solid provider URL..."
+                  style=${{
+                    padding: '0.5rem 2.5rem 0.5rem 0.5rem',
+                    border: `1px solid ${this.validatePodUrl(selectedPod) ? '#28a745' : '#ccc'}`,
+                    fontSize: '0.9rem',
+                    background: 'white',
+                    color: '#333',
+                    cursor: isLoading ? 'not-allowed' : 'text',
+                    minWidth: '200px',
+                    borderRadius: '4px'
+                  }}
+                />
+                <button
+                  onClick=${this.toggleProviders}
+                  disabled=${isLoading}
+                  style=${{
+                    position: 'absolute',
+                    right: '0.25rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#666',
+                    fontSize: '0.8rem',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    padding: '0.25rem'
+                  }}
+                >
+                  ▼
+                </button>
+                ${showProviders && html`
+                  <div style=${{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #ccc',
+                    borderTop: 'none',
+                    borderRadius: '0 0 4px 4px',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}>
+                    ${commonProviders.map(provider => html`
+                      <div
+                        onClick=${() => this.handlePodSelect(provider)}
+                        style=${{
+                          padding: '0.5rem',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #f0f0f0',
+                          backgroundColor: selectedPod === provider ? '#f8f9fa' : 'white'
+                        }}
+                        onMouseOver=${(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                        onMouseOut=${(e) => e.target.style.backgroundColor = selectedPod === provider ? '#f8f9fa' : 'white'}
+                      >
+                        ${provider.replace('https://', '').replace('/', '')}
+                      </div>
+                    `)}
+                  </div>
+                `}
+              </div>
+              <button
+                onClick=${this.handleLogin}
+                disabled=${isLoading || !this.validatePodUrl(selectedPod)}
+                style=${{
+                  background: '#7c3aed',
+                  color: 'white',
+                  border: '1px solid #5b21b6',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: (isLoading || !this.validatePodUrl(selectedPod)) ? 'not-allowed' : 'pointer',
+                  opacity: (isLoading || !this.validatePodUrl(selectedPod)) ? 0.7 : 1,
+                  borderRadius: '4px'
+                }}
+              >
+                ${isLoading ? 'Loading...' : 'Login with Solid'}
+              </button>
+              <button
+                onClick=${this.handleNostrLogin}
+                disabled=${isLoading}
+                style=${{
+                  background: '#f97316',
+                  color: 'white',
+                  border: '1px solid #ea580c',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.7 : 1,
+                  borderRadius: '4px'
+                }}
+              >
+                ${isLoading ? 'Loading...' : 'Login with Nostr'}
+              </button>
+            </div>
           `}
         </div>
       </nav>
